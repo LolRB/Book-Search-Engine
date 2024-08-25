@@ -15,54 +15,44 @@ const resolvers = {
       throw AuthenticationError;
     },
   },
-
   Mutation: {
-    addUser: async (parent, args) => {
-      const user = await User.create(args);
-      const token = signToken(user);
-
-      return { token, user };
-    },
-    login: async (parent, { email, password }) => {
+    loginUser: async (parent, { email, password }) => {
       const user = await User.findOne({ email });
+      const correctPass = await User.isCorrectPassword(password);
+      const token = signToken(user);
 
       if (!user) {
         throw AuthenticationError;
       }
-
-      const correctPw = await user.isCorrectPassword(password);
-
-      if (!correctPw) {
+      if (!correctPass) {
         throw AuthenticationError;
       }
 
-      const token = signToken(user);
       return { token, user };
     },
-    saveBook: async (parent, { bookData }, context) => {
+    addUser: async (parent, { username, email, password }) => {
+      const user = await User.create({ username, email, password });
+      const token = signToken(user);
+
+      return { token, user };
+    },
+    saveBook: async (parent, { userId, bookData }, context) => {
       if (context.user) {
-        const updatedUser = await User.findByIdAndUpdate(
-          { _id: context.user._id },
-          { $push: { savedBooks: bookData } },
+        return User.findOneAndUpdate(
+          { _id: userId },
+          { $addToSet: { savedBooks: bookData } },
           { new: true }
         );
-
-        return updatedUser;
       }
-
-      throw AuthenticationError;
     },
     removeBook: async (parent, { bookId }, context) => {
       if (context.user) {
-        const updatedUser = await User.findOneAndUpdate(
+        return User.findOneAndUpdate(
           { _id: context.user._id },
           { $pull: { savedBooks: { bookId } } },
           { new: true }
         );
-
-        return updatedUser;
       }
-
       throw AuthenticationError;
     },
   },
